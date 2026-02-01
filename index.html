@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>For You, My Love | Home</title>
+    <link rel="stylesheet" href="style.css">
+    <script defer src="script.js?v=3"></script>
+    <style>
+        /* Prevent FOUC before router sets classes */
+        body { opacity: 0; }
+    </style>
+    </head>
+<body class="page-home has-hearts">
+    <header>
+        <div class="nav-container">
+            <a class="logo" href="#/home">For You, My Love</a>
+            <nav>
+                <div class="hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </div>
+                <div class="nav-links">
+                    <a href="#/home">Home</a>
+                    <a href="#/story">Our Story</a>
+                    <a href="#/letter">Love Letter</a>
+                    <a href="#/songs">Songs</a>
+                    <a href="#/proposal">Proposal</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div id="app"></div>
+    </main>
+
+    <!-- Page Templates -->
+    <template id="tmpl-home">
+        <section class="hero">
+            <div class="floating-aurora"></div>
+            <div class="hero-content reveal">
+                <h1>For You, My Love</h1>
+                <p>A gentle place made just for us, filled with the moments and melodies that bloom in my heart.</p>
+                <div class="hero-actions">
+                    <a class="btn btn-primary" href="#/story">Begin Our Story</a>
+                    <a class="btn btn-ghost" href="#/proposal">Peek at the finale</a>
+                </div>
+                <div class="scroll-cue">scroll softly</div>
+            </div>
+        </section>
+
+        <div class="container">
+            <div class="flow-nav">
+                <span class="spacer"></span>
+                <a href="#/story">Next &rarr; Our Story</a>
+            </div>
+        </div>
+    </template>
+
+    <template id="tmpl-story">
+        <section class="container" style="padding-top:90px;">
+            <div class="section-heading reveal">
+                <h2>How It All Began</h2>
+                <p>Little snapshots of us &mdash; the moments that flutter in my memory.</p>
+            </div>
+
+            <div class="story-grid">
+                <article class="card reveal">
+                    <div class="icon-circle">&#128197;</div>
+                    <h3>The Day We Met</h3>
+                    <p><!-- Edit this memory -->A quiet day that suddenly turned warm because you were there. I still remember the way the world felt softer the moment our eyes met.</p>
+                </article>
+
+                <article class="card reveal">
+                    <div class="icon-circle">&#10024;</div>
+                    <h3>Our First Memory</h3>
+                    <p><!-- Edit this memory -->That first laugh we shared still echoes in my head. It was the instant I realized how rare it was to feel so at ease with someone.</p>
+                </article>
+
+                <article class="card reveal">
+                    <div class="icon-circle">&#128205;</div>
+                    <h3>Moments I'll Never Forget</h3>
+                    <p><!-- Edit this memory -->Every walk, every late-night chat, every little adventure &mdash; they stitched themselves into a tapestry I cherish more each day.</p>
+                </article>
+            </div>
+
+            <div class="flow-nav">
+                <a href="#/home">&larr; Back to Home</a>
+                <a href="#/letter">Next &rarr; Love Letter</a>
+            </div>
+        </section>
+    </template>
+
+    <template id="tmpl-letter">
+        <section class="container" style="padding-top:90px;">
+            <div class="section-heading reveal">
+                <h2>A Letter From My Heart</h2>
+                <p>Words that always seem to find their way back to you.</p>
+            </div>
+
+            <article class="card letter-card reveal">
+                <div class="letter-body">
+                    <div class="typing-line" data-typing="This is a letter I wrote with every soft piece of my heart."></div>
+                    <div class="expandable">
+                        <p><!-- Edit this letter -->I never knew that a single person could turn ordinary days into something so bright. Your kindness, your quiet strength, and the way you listen make me feel like I belong in a story that was written for the two of us.</p>
+                        <p><!-- Edit this letter -->When I look at you, I feel calm and excited all at once. You are the voice I search for in a crowded room and the warmth I reach for when the world goes quiet.</p>
+                        <p><!-- Edit this letter -->Thank you for being you &mdash; for the patience, the laughter, and the little moments that feel like forever. I hope you keep this letter close and feel every word the way I feel every heartbeat that spells your name.</p>
+                    </div>
+                    <button class="btn btn-ghost read-more" type="button">Read More</button>
+                </div>
+            </article>
+
+            <div class="flow-nav">
+                <a href="#/story">&larr; Back to Our Story</a>
+                <a href="#/songs">Next &rarr; Songs</a>
+            </div>
+        </section>
+    </template>
+
+    <template id="tmpl-songs">
+        <section class="container" style="padding-top:90px;">
+            <div class="section-heading reveal">
+                <h2>Songs That Remind Me of You</h2>
+                <p>A single melody I keep replaying &mdash; the one that sounds like us.</p>
+            </div>
+
+            <div class="solo-song card reveal">
+                <div class="icon-circle">&#127925;</div>
+                <div>
+                    <h3>Die With A Smile</h3>
+                    <p class="song-meta">Lady Gaga &amp; Bruno Mars</p>
+                </div>
+                <p style="margin-top:12px; color: var(--muted);">Whenever you press play, this is the only song that will serenade you.</p>
+                <div class="solo-controls">
+                    <button class="btn btn-primary" id="playDieSong" type="button">Play Die With A Smile</button>
+                    <audio id="dieSongAudio" controls preload="auto">
+                        <source src="audio/die-with-a-smile.mp3" type="audio/mpeg">
+                    </audio>
+                </div>
+            </div>
+
+            <div class="flow-nav">
+                <a href="#/letter">&larr; Back to Love Letter</a>
+                <a href="#/proposal">Next &rarr; Proposal</a>
+            </div>
+        </section>
+    </template>
+
+    <template id="tmpl-proposal">
+        <section class="container" style="padding-top:90px;">
+            <div class="proposal-wrap card reveal">
+                <p style="color: var(--muted);">A soft question wrapped in all the gratitude and care in my heart.</p>
+                <h2>Will You Say Yes to Us Forever?</h2>
+                <p><!-- Edit proposal intro -->No pressure, no rush &mdash; just a promise that I will always appreciate you. Whatever you choose, you are loved and cherished.</p>
+                <div class="proposal-actions">
+                    <button class="btn btn-primary" id="yesButton" type="button">Yes &#10084;&#65039;</button>
+                    <button class="btn btn-ghost" id="thinkButton" type="button">I need to think &#128522;</button>
+                </div>
+                <div class="message-box" aria-live="polite"></div>
+            </div>
+
+            <div class="flow-nav">
+                <a href="#/songs">&larr; Back to Songs</a>
+                <span class="spacer"></span>
+            </div>
+        </section>
+    </template>
+
+    
+</body>
+</html>
+
+
