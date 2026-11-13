@@ -136,9 +136,7 @@
                 <p style="margin-top:12px; color: var(--muted);">Whenever you press play, this is the only song that will serenade you.</p>
                 <div class="solo-controls">
                     <button class="btn btn-primary" id="playDieSong" type="button">Play Die With A Smile</button>
-                    <audio id="dieSongAudio" controls preload="auto">
-                        <source src="audio/die-with-a-smile.mp3" type="audio/mpeg">
-                    </audio>
+                    
                 </div>
             </div>
 
@@ -170,6 +168,16 @@
     </template>
 
     
+    <!-- Persistent Global Audio & Music Bar -->
+    <aside class="floating-music-bar" aria-label="Background music">
+        <button id="globalMusicBtn" class="music-pill" type="button" aria-label="Toggle background music">
+            <span class="music-icon" aria-hidden="true">🎵</span>
+            <span class="music-label">Play Music</span>
+        </button>
+        <audio id="globalAudio" loop preload="auto">
+            <source src="audio/die-with-a-smile.mp3" type="audio/mpeg">
+        </audio>
+    </aside>
 </body>
 </html>
 

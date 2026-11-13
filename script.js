@@ -3,6 +3,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     setupNavigation();
     setupSparkles();
+    setupGlobalAudio();
     startRouter();
 });
 
@@ -276,47 +277,60 @@ function setupSongAudio() {
     });
 }
 
+function setupGlobalAudio() {
+    const floatingBtn = document.getElementById('globalMusicBtn');
+    if (!floatingBtn) return;
+    floatingBtn.addEventListener('click', toggleGlobalAudio);
+}
+
+function toggleGlobalAudio() {
+    const audio = document.getElementById('globalAudio');
+    if (!audio) return;
+
+    if (audio.paused) {
+        audio.play().then(() => {
+            syncAudioState(true);
+        }).catch(err => {
+            console.warn('Playback blocked by browser policy:', err);
+        });
+    } else {
+        audio.pause();
+        syncAudioState(false);
+    }
+}
+
+function syncAudioState(isPlaying) {
+    const floatingBtn = document.getElementById('globalMusicBtn');
+    const pageBtn = document.getElementById('playDieSong');
+    if (floatingBtn) {
+        floatingBtn.classList.toggle('is-playing', isPlaying);
+        const label = floatingBtn.querySelector('.music-label');
+        if (label) label.textContent = isPlaying ? 'Playing' : 'Play Music';
+    }
+    if (pageBtn) {
+        pageBtn.textContent = isPlaying ? 'Pause Die With A Smile' : 'Play Die With A Smile';
+    }
+}
+
 function setupSoloSong() {
-    const btn = document.getElementById('playDieSong');
-    const audio = document.getElementById('dieSongAudio');
-    if (!btn || !audio) return;
+    const pageBtn = document.getElementById('playDieSong');
+    const audio = document.getElementById('globalAudio');
+    if (!pageBtn || !audio) return;
 
-    btn.addEventListener('click', () => {
-        if (audio.paused) {
-            audio.currentTime = 0;
-            audio.play();
-            btn.textContent = 'Pause Die With A Smile';
-        } else {
-            audio.pause();
-            btn.textContent = 'Play Die With A Smile';
-        }
-    });
+    // Sync button text on load
+    pageBtn.textContent = audio.paused ? 'Play Die With A Smile' : 'Pause Die With A Smile';
 
-    audio.addEventListener('ended', () => {
-        btn.textContent = 'Play Die With A Smile';
+    pageBtn.addEventListener('click', () => {
+        toggleGlobalAudio();
     });
 }
 
-function handleCreatorOverlay() {
-    const overlay = document.getElementById('creator-overlay');
-    const btn = document.getElementById('creator-continue');
-    if (!overlay || !btn) return;
-
-    const dismiss = () => {
-        overlay.classList.add('hidden');
-        overlay.style.display = 'none';
-        setTimeout(() => overlay.remove(), 400);
-    };
-
-    if (localStorage.getItem('creatorSeen')) {
-        dismiss();
-        return;
+function playCelebrationSong() {
+    const audio = document.getElementById('globalAudio');
+    if (audio) {
+        audio.currentTime = 0;
+        audio.play().then(() => syncAudioState(true)).catch(() => {});
     }
-
-    btn.addEventListener('click', () => {
-        localStorage.setItem('creatorSeen', 'true');
-        dismiss();
-    });
 }
 
 function setupProposalPage() {
@@ -324,88 +338,70 @@ function setupProposalPage() {
     const thinkBtn = document.getElementById('thinkButton');
     const messageBox = document.querySelector('.message-box');
 
-    if (yesBtn && messageBox) {
-        const handleYes = (e) => {
-            if (e) { e.preventDefault(); e.stopPropagation(); }
-            // Guard against duplicate firing on mobile (touch + click)
-            if (yesBtn.dataset.firing === 'true') return;
-            yesBtn.dataset.firing = 'true';
+    if (!yesBtn || !thinkBtn || !messageBox) return;
 
-            messageBox.textContent = 'You just made me the happiest person alive.';
-            launchCelebration();
-            playCelebrationSong();
-            sendNotification('yes').finally(() => {
-                // Release the guard shortly after send
-                setTimeout(() => { yesBtn.dataset.firing = 'false'; }, 200);
-            });
-        };
-        yesBtn.addEventListener('click', handleYes, { passive: false });
-        yesBtn.addEventListener('pointerup', handleYes, { passive: false });
-        yesBtn.addEventListener('touchend', handleYes, { passive: false });
-    }
+    let thinkCount = 0;
+    const thinkPhrases = [
+        'I need to think 😊',
+        'Are you sure? 🥺',
+        'Really sure? 💔',
+        'Think again! 🌸',
+        'Look at the Yes button! 👉',
+        'Pretty please? 🥺❤️',
+        'You know you want to! ✨'
+    ];
 
-    if (thinkBtn && messageBox) {
-        const handleThink = (e) => {
-            if (e) { e.preventDefault(); e.stopPropagation(); }
-            if (thinkBtn.dataset.firing === 'true') return;
-            thinkBtn.dataset.firing = 'true';
-
-            messageBox.textContent = 'No matter what, you will always be special to me.';
-            sendNotification('think').finally(() => {
-                setTimeout(() => { thinkBtn.dataset.firing = 'false'; }, 200);
-            });
-        };
-        thinkBtn.addEventListener('click', handleThink, { passive: false });
-        thinkBtn.addEventListener('pointerup', handleThink, { passive: false });
-        thinkBtn.addEventListener('touchend', handleThink, { passive: false });
-
-        // Show the gentle message on hover (without clicking)
-        let hoverTimer;
-        const triggerDodge = () => {
-            messageBox.textContent = 'No matter what, you will always be special to me.';
-            relocateThinkButton(thinkBtn);
-        };
-
-        thinkBtn.addEventListener('mouseenter', () => {
-            messageBox.textContent = 'No matter what, you will always be special to me.';
-            const delay = 100 + Math.random() * 300;
-            hoverTimer = setTimeout(() => relocateThinkButton(thinkBtn), delay);
-        });
-        thinkBtn.addEventListener('mouseleave', () => {
-            if (hoverTimer) {
-                clearTimeout(hoverTimer);
-                hoverTimer = null;
-            }
-        });
-        // On mobile touch, playfully jump away before tap can register
-        thinkBtn.addEventListener('touchstart', (e) => {
+    const handleDodge = (e) => {
+        if (e) {
             e.preventDefault();
-            triggerDodge();
-        }, { passive: false });
-    }
+            e.stopPropagation();
+        }
+        thinkCount++;
+        const phraseIndex = Math.min(thinkCount, thinkPhrases.length - 1);
+        thinkBtn.textContent = thinkPhrases[phraseIndex];
 
-}
+        // Grow Yes button with spring curve
+        const scale = 1 + Math.min(thinkCount * 0.15, 1.1);
+        yesBtn.style.transform = `scale(${scale})`;
 
-function relocateThinkButton(btn) {
-    const wrap = document.querySelector('.proposal-wrap');
-    if (!wrap || !btn) return;
-    // Ensure the container is positioned for absolute children
-    if (getComputedStyle(wrap).position === 'static') {
-        wrap.style.position = 'relative';
-    }
-    // Move button into the wrap to position freely
-    if (btn.parentElement !== wrap) {
-        wrap.appendChild(btn);
-    }
-    btn.style.position = 'absolute';
-    btn.style.zIndex = '5';
-    const padding = 8;
-    const maxLeft = Math.max(0, wrap.clientWidth - btn.offsetWidth - padding);
-    const maxTop = Math.max(0, wrap.clientHeight - btn.offsetHeight - padding);
-    const left = padding + Math.random() * maxLeft;
-    const top = padding + Math.random() * maxTop;
-    btn.style.left = `${left}px`;
-    btn.style.top = `${top}px`;
+        // Playfully displace Think button via transform (Hallmark: never top/left)
+        const maxOffset = Math.min(30 + thinkCount * 6, 70);
+        const offsetX = (Math.random() - 0.5) * maxOffset * 2;
+        const offsetY = (Math.random() - 0.5) * 24;
+        thinkBtn.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+
+        // Mobile haptic vibration if supported
+        if (navigator.vibrate) {
+            navigator.vibrate(40);
+        }
+
+        messageBox.textContent = 'No matter what, you will always be special to me.';
+    };
+
+    thinkBtn.addEventListener('mouseenter', handleDodge);
+    thinkBtn.addEventListener('click', handleDodge);
+    thinkBtn.addEventListener('touchstart', handleDodge, { passive: false });
+
+    yesBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (yesBtn.dataset.firing === 'true') return;
+        yesBtn.dataset.firing = 'true';
+
+        yesBtn.style.transform = 'scale(1.1)';
+        thinkBtn.style.transform = 'none';
+
+        messageBox.textContent = 'You just made me the happiest person alive! ❤️';
+        launchCelebration();
+        playCelebrationSong();
+
+        if (navigator.vibrate) {
+            navigator.vibrate([100, 50, 150]);
+        }
+
+        sendNotification('yes').finally(() => {
+            setTimeout(() => { yesBtn.dataset.firing = 'false'; }, 200);
+        });
+    });
 }
 
 function launchCelebration() {
