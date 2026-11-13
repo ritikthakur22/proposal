@@ -41,7 +41,6 @@ function startRouter() {
 }
 
 function initPage() {
-    handleCreatorOverlay();
     setActiveNav();
     setupRevealAnimations();
     setupFloatingHearts();
