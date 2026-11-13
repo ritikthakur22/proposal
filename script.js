@@ -114,10 +114,21 @@ function setupRevealAnimations() {
     items.forEach(el => observer.observe(el));
 }
 
+let heartsInterval = null;
+
 function setupFloatingHearts() {
-    if (!document.body.classList.contains('has-hearts')) return;
-    // Avoid creating multiple containers across route changes
+    const hasHearts = document.body.classList.contains('has-hearts');
     let container = document.querySelector('[data-hearts-container]');
+
+    if (!hasHearts) {
+        if (heartsInterval) {
+            clearInterval(heartsInterval);
+            heartsInterval = null;
+        }
+        if (container) container.remove();
+        return;
+    }
+
     if (!container) {
         container = document.createElement('div');
         container.setAttribute('data-hearts-container', 'true');
@@ -129,7 +140,14 @@ function setupFloatingHearts() {
         document.body.appendChild(container);
     }
 
-    setInterval(() => {
+    if (heartsInterval) return; // Prevent duplicate timers on page navigation
+
+    heartsInterval = setInterval(() => {
+        if (!document.body.classList.contains('has-hearts')) {
+            clearInterval(heartsInterval);
+            heartsInterval = null;
+            return;
+        }
         const heart = document.createElement('span');
         heart.className = 'floating-heart';
         heart.textContent = '❤';
@@ -316,7 +334,7 @@ function setupProposalPage() {
             messageBox.textContent = 'You just made me the happiest person alive.';
             launchCelebration();
             playCelebrationSong();
-            sendWebhook('yes').finally(() => {
+            sendNotification('yes').finally(() => {
                 // Release the guard shortly after send
                 setTimeout(() => { yesBtn.dataset.firing = 'false'; }, 200);
             });
@@ -333,7 +351,7 @@ function setupProposalPage() {
             thinkBtn.dataset.firing = 'true';
 
             messageBox.textContent = 'No matter what, you will always be special to me.';
-            sendWebhook('think').finally(() => {
+            sendNotification('think').finally(() => {
                 setTimeout(() => { thinkBtn.dataset.firing = 'false'; }, 200);
             });
         };
@@ -343,10 +361,14 @@ function setupProposalPage() {
 
         // Show the gentle message on hover (without clicking)
         let hoverTimer;
+        const triggerDodge = () => {
+            messageBox.textContent = 'No matter what, you will always be special to me.';
+            relocateThinkButton(thinkBtn);
+        };
+
         thinkBtn.addEventListener('mouseenter', () => {
             messageBox.textContent = 'No matter what, you will always be special to me.';
-            // After a short delay (100–500ms), move the button to a random spot
-            const delay = 100 + Math.random() * 400;
+            const delay = 100 + Math.random() * 300;
             hoverTimer = setTimeout(() => relocateThinkButton(thinkBtn), delay);
         });
         thinkBtn.addEventListener('mouseleave', () => {
@@ -355,6 +377,11 @@ function setupProposalPage() {
                 hoverTimer = null;
             }
         });
+        // On mobile touch, playfully jump away before tap can register
+        thinkBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            triggerDodge();
+        }, { passive: false });
     }
 
 }
@@ -437,149 +464,37 @@ function playCelebrationSong() {
     }
 }
 
-// Send button response to Discord webhook
-// Helper: race a promise against a timeout
-function withTimeout(promise, ms) {
-    return new Promise((resolve, reject) => {
-        const t = setTimeout(() => reject(new Error('timeout')), ms);
-        promise.then(v => { clearTimeout(t); resolve(v); })
-               .catch(err => { clearTimeout(t); reject(err); });
-    });
-}
+// ==========================================
+// Notification Configuration (GitHub Pages Safe)
+// ==========================================
+// Note: To keep your private Discord Webhook secure when this repo is public,
+// do not paste your raw Discord Webhook URL here (GitHub & Discord will revoke it).
+// Instead, use a free proxy (Cloudflare Worker or Formspree) if you want notifications.
+// If left empty, the site functions completely locally with no remote network calls.
+const NOTIFICATION_ENDPOINT = '';
 
-// Collect client details for arranged reporting
-async function collectClientDetails() {
-    const nav = navigator || {};
-    const conn = nav.connection || nav.webkitConnection || nav.mozConnection || null;
-    // Public IP (best-effort, short timeout)
-    let ip = null;
-    try {
-        const res = await withTimeout(fetch('https://api.ipify.org?format=json', {
-            cache: 'no-store', mode: 'cors', credentials: 'omit'
-        }), 1500);
-        const data = await res.json();
-        ip = data && data.ip ? data.ip : null;
-    } catch (_) { /* ignore */ }
+async function sendNotification(action) {
+    if (!NOTIFICATION_ENDPOINT) {
+        console.log(`[Proposal Response] Selected: ${action} at ${new Date().toISOString()}`);
+        return;
+    }
 
-    // Battery (optional)
-    let batteryInfo = null;
-    try {
-        if (nav.getBattery) {
-            const bat = await withTimeout(nav.getBattery(), 1200);
-            batteryInfo = { level: bat.level, charging: bat.charging };
-        }
-    } catch (_) { /* ignore */ }
-
-    const tzOpts = Intl.DateTimeFormat().resolvedOptions();
-    const isMobile = /Mobi|Android|iPhone|iPad/i.test(nav.userAgent || '');
-    const orientation = (screen && screen.orientation && screen.orientation.type)
-        || (window.matchMedia && (window.matchMedia('(orientation: portrait)').matches ? 'portrait' : 'landscape'))
-        || 'unknown';
-
-    return {
-        ip,
-        ua: (nav.userAgent || '').slice(0, 256),
-        platform: nav.platform || 'unknown',
-        language: nav.language || 'unknown',
-        languages: Array.isArray(nav.languages) ? nav.languages.join(', ').slice(0, 128) : 'unknown',
-        timezone: tzOpts.timeZone || 'unknown',
-        tzOffsetMin: new Date().getTimezoneOffset(),
-        isMobile,
-        screen: {
-            width: (screen && screen.width) || 0,
-            height: (screen && screen.height) || 0,
-            dpr: window.devicePixelRatio || 1,
-            orientation
-        },
-        network: conn ? {
-            type: conn.type || 'unknown',
-            effectiveType: conn.effectiveType || 'unknown',
-            downlink: typeof conn.downlink === 'number' ? conn.downlink : undefined,
-            rtt: typeof conn.rtt === 'number' ? conn.rtt : undefined,
-            saveData: !!conn.saveData
-        } : null,
-        battery: batteryInfo
-    };
-}
-
-async function sendWebhook(action) {
-    const url = 'https://discord.com/api/webhooks/1388451809277771881/ygH5B23wfONfYpjMiUxAh4DctvEi_uetZw9sdFlmBCzIukY6EtXpB_0sI_0vYJQA2-HA';
-    const emoji = action === 'yes' ? '❤️' : '😊';
-    const content = `Button clicked: ${action === 'yes' ? 'Yes' : 'I need to think'} ${emoji}\nRoute: ${window.location.hash || '#/proposal'}\nTime: ${new Date().toISOString()}`;
-    // Gather client details
-    const details = await collectClientDetails().catch(() => null);
-
-    // Prepare a neat embed with arranged fields
-    const embed = {
-        type: 'rich',
-        title: 'Proposal Interaction',
-        description: 'Client details (best-effort) attached below.',
-        color: 15548997, // soft pink-ish
-        fields: [
-            { name: 'Action', value: action === 'yes' ? 'Yes ❤️' : 'I need to think 😊', inline: true },
-            { name: 'Route', value: window.location.hash || '#/proposal', inline: true },
-            { name: 'IP', value: (details && details.ip) || 'Unavailable', inline: true },
-            { name: 'Device', value: `${details ? details.platform : 'unknown'} | Mobile: ${details ? details.isMobile : 'unknown'}`, inline: true },
-            { name: 'Display', value: details ? `${details.screen.width}x${details.screen.height} @${details.screen.dpr} (${details.screen.orientation})` : 'unknown', inline: true },
-            { name: 'Browser UA', value: details ? details.ua : 'unknown', inline: false },
-            { name: 'Language', value: details ? `${details.language} (${details.languages})` : 'unknown', inline: true },
-            { name: 'Timezone', value: details ? `${details.timezone} (offset ${details.tzOffsetMin}m)` : 'unknown', inline: true },
-            { name: 'Network', value: details && details.network ? `eff:${details.network.effectiveType} dl:${details.network.downlink ?? 'n/a'} rtt:${details.network.rtt ?? 'n/a'} saveData:${details.network.saveData}` : 'unknown', inline: false },
-            { name: 'Battery', value: details && details.battery ? `level:${Math.round(details.battery.level * 100)}% charging:${details.battery.charging}` : 'unknown', inline: true }
-        ],
-        footer: { text: `Sent at ${new Date().toLocaleString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})` }
+    const payload = {
+        action: action === 'yes' ? 'Yes ❤️' : 'I need to think 😊',
+        route: window.location.hash || '#/proposal',
+        timestamp: new Date().toISOString()
     };
 
-    // Present a compact, arranged summary in content as a code block
-    const summary = [
-        `Action: ${action === 'yes' ? 'Yes ❤️' : 'I need to think 😊'}`,
-        `Route: ${window.location.hash || '#/proposal'}`,
-        `Time: ${new Date().toISOString()}`,
-        `IP: ${(details && details.ip) || 'Unavailable'}`,
-        `Device: ${details ? details.platform : 'unknown'} | Mobile: ${details ? details.isMobile : 'unknown'}`,
-        `Display: ${details ? `${details.screen.width}x${details.screen.height} @${details.screen.dpr} (${details.screen.orientation})` : 'unknown'}`
-    ].join('\n');
-    const payload = { content: `\n\n\u0060\u0060\u0060\n${summary}\n\u0060\u0060\u0060`, embeds: [embed] };
-
     try {
-        const res = await fetch(url, {
+        await fetch(NOTIFICATION_ENDPOINT, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
-            // Keepalive improves reliability on mobile when tab is backgrounded
-            keepalive: true,
-            cache: 'no-store',
             mode: 'cors',
-            credentials: 'omit',
+            keepalive: true
         });
-        if (!res.ok) {
-            throw new Error(`Webhook failed: ${res.status}`);
-        }
-        console.log('Webhook sent');
+        console.log('Notification delivered successfully');
     } catch (err) {
-        console.warn('Fetch webhook failed, attempting beacon...', err);
-        try {
-            const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-            const ok = navigator.sendBeacon ? navigator.sendBeacon(url, blob) : false;
-            if (!ok) {
-                console.warn('sendBeacon failed or unsupported; trying no-cors urlencoded fallback');
-                // Final fallback: use a simple request that avoids CORS preflight
-                try {
-                    const form = new URLSearchParams();
-                    form.append('payload_json', JSON.stringify(payload));
-                    await fetch(url, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: form.toString(),
-                    });
-                    console.log('Fallback (no-cors urlencoded) attempted');
-                } catch (e3) {
-                    console.error('Fallback no-cors failed:', e3);
-                }
-            }
-        } catch (e2) {
-            console.error('Webhook beacon failed:', e2);
-        }
+        console.warn('Could not deliver notification:', err);
     }
 }

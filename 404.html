@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>For You, My Love</title>
+    <script>
+        // GitHub Pages SPA redirect
+        const pathSegments = window.location.pathname.split('/').filter(Boolean);
+        const repoName = pathSegments.length > 0 ? '/' + pathSegments[0] : '';
+        const lastSegment = pathSegments[pathSegments.length - 1] || '';
+        const targetRoute = lastSegment.replace(/\.html$/, '');
+
+        if (targetRoute && targetRoute !== 'index' && targetRoute !== pathSegments[0]) {
+            window.location.replace(repoName + '/#/' + targetRoute);
+        } else {
+            window.location.replace(repoName + '/#/home');
+        }
+    </script>
+</head>
+<body style="font-family: sans-serif; text-align: center; padding: 50px; background: #fff7f8; color: #3b2e2f;">
+    <h2>Redirecting to our story...</h2>
+    <p><a href="./#/home" style="color: #e26a8b;">Click here if you are not automatically redirected</a>.</p>
+</body>
+</html>
