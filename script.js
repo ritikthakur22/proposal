@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupNavigation();
     setupSparkles();
     setupGlobalAudio();
+    autoPlaySong();
     startRouter();
 });
 
@@ -41,6 +42,7 @@ function startRouter() {
 }
 
 function initPage() {
+    handlePeekNavigation();
     setActiveNav();
     setupRevealAnimations();
     setupFloatingHearts();
@@ -332,54 +334,136 @@ function playCelebrationSong() {
     }
 }
 
+function handlePeekNavigation() {
+    const peekBtn = document.getElementById('peekFinaleBtn');
+    if (peekBtn) {
+        peekBtn.addEventListener('click', () => {
+            sessionStorage.setItem('peekedFinale', 'true');
+        });
+    }
+    const storyBtn = document.getElementById('beginStoryBtn');
+    if (storyBtn) {
+        storyBtn.addEventListener('click', () => {
+            sessionStorage.removeItem('peekedFinale');
+        });
+    }
+}
+
+function autoPlaySong() {
+    const audio = document.getElementById('globalAudio');
+    if (!audio) return;
+
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+        playPromise.then(() => {
+            syncAudioState(true);
+        }).catch(() => {
+            // Unmute/play on very first user interaction
+            const unlock = () => {
+                if (audio.paused) {
+                    audio.play().then(() => syncAudioState(true)).catch(() => {});
+                }
+                ['click', 'touchstart', 'scroll', 'keydown'].forEach(evt => {
+                    window.removeEventListener(evt, unlock, true);
+                });
+            };
+            ['click', 'touchstart', 'scroll', 'keydown'].forEach(evt => {
+                window.addEventListener(evt, unlock, { once: true, capture: true });
+            });
+        });
+    }
+}
+
 function setupProposalPage() {
     const yesBtn = document.getElementById('yesButton');
     const thinkBtn = document.getElementById('thinkButton');
     const messageBox = document.querySelector('.message-box');
+    const wrap = document.querySelector('.proposal-wrap');
 
     if (!yesBtn || !thinkBtn || !messageBox) return;
 
-    let thinkCount = 0;
-    const thinkPhrases = [
+    // Check if user came from "Peek at the finale"
+    const backLink = document.getElementById('proposalBackLink');
+    if (backLink) {
+        if (sessionStorage.getItem('peekedFinale') === 'true') {
+            backLink.setAttribute('href', '#/home');
+            backLink.innerHTML = '&larr; Back to Home';
+            backLink.addEventListener('click', () => {
+                sessionStorage.removeItem('peekedFinale');
+            });
+        } else {
+            backLink.setAttribute('href', '#/songs');
+            backLink.innerHTML = '&larr; Back to Songs';
+        }
+    }
+
+    let dodgeCount = 0;
+    const dodgePhrases = [
         'I need to think 😊',
-        'Are you sure? 🥺',
-        'Really sure? 💔',
-        'Think again! 🌸',
+        "You can't catch me! 🏃💨",
+        'Nope, try again! 😜',
+        'Still too slow! ✨',
+        'Only YES is allowed! ❤️',
         'Look at the Yes button! 👉',
-        'Pretty please? 🥺❤️',
-        'You know you want to! ✨'
+        'Not an option! 🥰'
     ];
 
-    const handleDodge = (e) => {
+    const runAway = (e) => {
         if (e) {
             e.preventDefault();
             e.stopPropagation();
         }
-        thinkCount++;
-        const phraseIndex = Math.min(thinkCount, thinkPhrases.length - 1);
-        thinkBtn.textContent = thinkPhrases[phraseIndex];
+        dodgeCount++;
 
-        // Grow Yes button with spring curve
-        const scale = 1 + Math.min(thinkCount * 0.15, 1.1);
-        yesBtn.style.transform = `scale(${scale})`;
+        // Update playful text
+        const phraseIdx = Math.min(dodgeCount, dodgePhrases.length - 1);
+        thinkBtn.textContent = dodgePhrases[phraseIdx];
 
-        // Playfully displace Think button via transform (Hallmark: never top/left)
-        const maxOffset = Math.min(30 + thinkCount * 6, 70);
-        const offsetX = (Math.random() - 0.5) * maxOffset * 2;
-        const offsetY = (Math.random() - 0.5) * 24;
-        thinkBtn.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
-
-        // Mobile haptic vibration if supported
-        if (navigator.vibrate) {
-            navigator.vibrate(40);
+        // Ensure wrap is positioned for absolute child
+        if (wrap && getComputedStyle(wrap).position === 'static') {
+            wrap.style.position = 'relative';
+        }
+        if (wrap && thinkBtn.parentElement !== wrap) {
+            wrap.appendChild(thinkBtn);
         }
 
-        messageBox.textContent = 'No matter what, you will always be special to me.';
+        thinkBtn.style.position = 'absolute';
+        thinkBtn.style.zIndex = '15';
+
+        // Calculate random coordinates inside container avoiding the Yes button
+        const wrapW = wrap ? wrap.clientWidth : 320;
+        const wrapH = wrap ? wrap.clientHeight : 280;
+        const btnW = thinkBtn.offsetWidth || 140;
+        const btnH = thinkBtn.offsetHeight || 44;
+
+        const pad = 12;
+        const maxLeft = Math.max(pad, wrapW - btnW - pad);
+        const maxTop = Math.max(pad, wrapH - btnH - pad);
+
+        const newLeft = pad + Math.random() * (maxLeft - pad);
+        const newTop = pad + Math.random() * (maxTop - pad);
+
+        thinkBtn.style.left = `${newLeft}px`;
+        thinkBtn.style.top = `${newTop}px`;
+
+        // Scale Yes button up with each dodge
+        const scale = 1 + Math.min(dodgeCount * 0.12, 1.0);
+        yesBtn.style.transform = `scale(${scale})`;
+
+        messageBox.textContent = "Nice try! But only 'Yes' is allowed ❤️";
+
+        if (navigator.vibrate) {
+            navigator.vibrate(30);
+        }
     };
 
-    thinkBtn.addEventListener('mouseenter', handleDodge);
-    thinkBtn.addEventListener('click', handleDodge);
-    thinkBtn.addEventListener('touchstart', handleDodge, { passive: false });
+    // Unclickable: dodges on hover, touch, pointer, focus, and click
+    thinkBtn.addEventListener('mouseenter', runAway);
+    thinkBtn.addEventListener('mouseover', runAway);
+    thinkBtn.addEventListener('touchstart', runAway, { passive: false });
+    thinkBtn.addEventListener('pointerdown', runAway, { passive: false });
+    thinkBtn.addEventListener('click', runAway, { passive: false });
+    thinkBtn.addEventListener('focus', runAway);
 
     yesBtn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -387,7 +471,7 @@ function setupProposalPage() {
         yesBtn.dataset.firing = 'true';
 
         yesBtn.style.transform = 'scale(1.1)';
-        thinkBtn.style.transform = 'none';
+        thinkBtn.style.display = 'none';
 
         messageBox.textContent = 'You just made me the happiest person alive! ❤️';
         launchCelebration();

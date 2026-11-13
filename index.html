@@ -8,7 +8,7 @@
     <meta http-equiv="Expires" content="0">
     <title>For You, My Love | Home</title>
     <link rel="stylesheet" href="style.css">
-    <script defer src="script.js?v=4"></script>
+    <script defer src="script.js?v=5"></script>
     <style>
         /* Prevent FOUC before router sets classes */
         body { opacity: 0; }
@@ -45,19 +45,11 @@
                 <h1>For You, My Love</h1>
                 <p>A gentle place made just for us, filled with the moments and melodies that bloom in my heart.</p>
                 <div class="hero-actions">
-                    <a class="btn btn-primary" href="#/story">Begin Our Story</a>
-                    <a class="btn btn-ghost" href="#/proposal">Peek at the finale</a>
+                    <a class="btn btn-primary" id="beginStoryBtn" href="#/story">Begin Our Story</a>
+                    <a class="btn btn-ghost" id="peekFinaleBtn" href="#/proposal">Peek at the finale</a>
                 </div>
-                <div class="scroll-cue">scroll softly</div>
             </div>
         </section>
-
-        <div class="container">
-            <div class="flow-nav">
-                <span class="spacer"></span>
-                <a href="#/story">Next &rarr; Our Story</a>
-            </div>
-        </div>
     </template>
 
     <template id="tmpl-story">
@@ -161,7 +153,7 @@
             </div>
 
             <div class="flow-nav">
-                <a href="#/songs">&larr; Back to Songs</a>
+                <a id="proposalBackLink" href="#/songs">&larr; Back to Songs</a>
                 <span class="spacer"></span>
             </div>
         </section>
